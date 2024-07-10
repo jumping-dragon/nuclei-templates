@@ -1,0 +1,27 @@
+id: astro-detect
+
+info:
+  name: Astrojs Technology Detection
+  author: aj
+  severity: info
+  description: Astro.js is a modern static site generator and web framework that was first released in 2021. It's designed to build fast, content-focused websites.
+  metadata:
+    max-request: 1
+  tags: tech, astro, astrojs
+
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+
+    host-redirects: true
+    max-redirects: 2
+
+    matchers-condition: or
+    matchers:
+      - type: regex
+        name: astrojs
+        regex:
+          - <meta name="generator" content="Astro
+        condition: or
+        part: body
