@@ -5,8 +5,11 @@ stages:
 sync to s3 mr:
   stage: deploy
   image: registry.gitlab.com/gitlab-org/cloud-deploy/aws-base:latest
+  before_script:
+    - apt update
+    - apt install git -y
   script:
-    - aws --endpoint-url $S3_ENDPOINT s3 sync . s3://"$S3_BUCKET/$CI_MERGE_REQUEST_IID" --delete --exclude ".git/*" --exclude "*.md" --exclude ".*" --exclude "*.json" --exclude "*.txt"
+    - git diff --no-commit-id --name-only ${CI_MERGE_REQUEST_DIFF_BASE_SHA} -- . ':(exclude).git*' | xargs -I {} aws --endpoint-url $S3_ENDPOINT s3 cp  ./{} s3://"$S3_BUCKET/$CI_MERGE_REQUEST_IID/{}"
   only:
     refs:
       - merge_requests
