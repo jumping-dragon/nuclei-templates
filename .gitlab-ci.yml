@@ -1,6 +1,24 @@
 stages:
+- digest
 - deploy
 - cleanup
+
+generate digest:
+  stage: digest
+  image: debian:bullseye
+  before_script:
+    - apt update
+    - apt install wget unzip -y
+    - arch=$(uname -m | sed 's/^x86_64$/amd64/')
+    - wget https://github.com/duckdb/duckdb/releases/download/v1.1.2/duckdb_cli-linux-$arch.zip -O duckdb.zip && unzip duckdb.zip && mv duckdb /usr/bin/duckdb && chmod +x /usr/bin/duckdb && rm duckdb.zip
+    - arch=$(uname -m | sed 's/^aarch64$/arm64/'| sed 's/^x86_64$/amd64/')
+    - wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$arch -O /usr/bin/yq && chmod +x /usr/bin/yq
+  script:
+    - find ./ -type f -regex ".*\.yaml" | xargs -I {} sh -c 'yq eval {} -o=json > {}.json; echo {}'
+    - duckdb -c "copy (select filename,info.metadata,info.classification from read_json('*/**/*.yaml.json', format='auto',union_by_name=true,filename=true)) to 'meta.parquet' (FORMAT PARQUET);"
+  artifacts:
+    paths:
+      - ./meta.parquet
 
 sync to s3 mr:
   stage: deploy
@@ -13,6 +31,8 @@ sync to s3 mr:
   only:
     refs:
       - merge_requests
+  dependencies:
+    - generate digest
 
 clean merged s3 mr sync:
   stage: cleanup
@@ -31,3 +51,5 @@ sync to s3 main:
   only:
     refs:
       - main
+  dependencies:
+    - generate digest
