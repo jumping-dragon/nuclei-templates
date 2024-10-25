@@ -15,7 +15,7 @@ generate digest:
     - wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$arch -O /usr/bin/yq && chmod +x /usr/bin/yq
   script:
     - find ./ -type f -regex ".*\.yaml" | xargs -I {} sh -c 'yq eval {} -o=json > {}.json; echo {}'
-    - duckdb -c "copy (select filename,info.metadata,info.classification from read_json('*/**/*.yaml.json', format='auto',union_by_name=true,filename=true)) to 'meta.parquet' (FORMAT PARQUET);"
+    - duckdb -c "copy (select filename,info.severity,info.author,info.metadata,info.classification from read_json('*/**/*.yaml.json', format='auto',union_by_name=true,filename=true)) to 'meta.parquet' (FORMAT PARQUET);"
   artifacts:
     paths:
       - ./meta.parquet
