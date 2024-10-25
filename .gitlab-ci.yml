@@ -20,6 +20,25 @@ generate digest:
     paths:
       - ./meta.parquet
 
+generate digest timestamp:
+  stage: digest
+  image: debian:bullseye
+  before_script:
+    - apt update
+    - apt install git wget unzip -y
+    - arch=$(uname -m | sed 's/^x86_64$/amd64/')
+    - wget https://github.com/duckdb/duckdb/releases/download/v1.1.2/duckdb_cli-linux-$arch.zip -O duckdb.zip && unzip duckdb.zip && mv duckdb /usr/bin/duckdb && chmod +x /usr/bin/duckdb && rm duckdb.zip
+    - arch=$(uname -m | sed 's/^aarch64$/arm64/'| sed 's/^x86_64$/amd64/')
+    - wget https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_$arch -O /usr/bin/yq && chmod +x /usr/bin/yq
+  script:
+    - echo 'filename,date' > output.csv
+    - find ./ -type f -regex ".*\.yaml" | xargs -P 8 -I {} echo {},$(git log -1 --format=%cI) >> output.csv
+    - tail -n 10 output.csv
+    - duckdb -c "copy (select replace(filename,'./','') filename, date from read_csv('output.csv', delim = ',', columns = {'filename':'VARCHAR', 'date':'TIMESTAMP'})) to 'timestamp.parquet' (FORMAT PARQUET);"
+  artifacts:
+    paths:
+      - ./timestamp.parquet
+
 sync to s3 mr:
   stage: deploy
   image: registry.gitlab.com/gitlab-org/cloud-deploy/aws-base:latest
@@ -33,6 +52,7 @@ sync to s3 mr:
       - merge_requests
   dependencies:
     - generate digest
+    - generate digest timestamp
 
 clean merged s3 mr sync:
   stage: cleanup
@@ -53,3 +73,4 @@ sync to s3 main:
       - main
   dependencies:
     - generate digest
+    - generate digest timestamp
